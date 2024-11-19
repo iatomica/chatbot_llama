@@ -1,0 +1,4 @@
+{
+    "prompt": "<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n{user_message} [/INST]",
+    "stop_sequences": ["</s>"]
+}
