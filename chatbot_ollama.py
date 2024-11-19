@@ -1,14 +1,36 @@
 import requests
 import json
-import pyttsx3
+import asyncio
+from edge_tts import Communicate
 import speech_recognition as sr
+import os
 
 # URL del servidor Ollama
 OLLAMA_URL = "http://localhost:11434/api/chat"
 
+async def speak_async(text):
+    """
+    Convierte texto en voz usando Microsoft Edge TTS.
+    """
+    if text.strip():  # Verifica que el texto no esté vacío
+        communicate = Communicate(text, voice="es-ES-AlvaroNeural")  # Voz argentina
+        try:
+            await communicate.save("response.mp3")
+            os.system("mpg123 response.mp3")  # Reproduce el audio
+        except Exception as e:
+            print(f"Error al sintetizar la voz: {e}")
+    else:
+        print("No hay texto para sintetizar.")
+
+def speak(text):
+    """
+    Wrapper para ejecutar la síntesis de voz de forma sincrónica.
+    """
+    asyncio.run(speak_async(text))
+
 def send_message_to_ollama(messages, model="llama3.2"):
     """
-    Envía mensajes al servidor Ollama y muestra la respuesta en tiempo real.
+    Envía mensajes al servidor Ollama y devuelve la respuesta completa.
     
     Args:
         messages (list): Lista de mensajes en el chat.
@@ -27,6 +49,7 @@ def send_message_to_ollama(messages, model="llama3.2"):
         with requests.post(OLLAMA_URL, json=payload, stream=True) as response:
             response.raise_for_status()
             full_response = ""
+            print("AI: ", end="", flush=True)
             for line in response.iter_lines():
                 if line:
                     try:
@@ -34,19 +57,13 @@ def send_message_to_ollama(messages, model="llama3.2"):
                         data = json.loads(line.decode("utf-8"))
                         chunk = data.get("message", {}).get("content", "")
                         full_response += chunk
+                        print(chunk, end="", flush=True)
                     except json.JSONDecodeError as e:
                         print(f"\nError decoding JSON: {e}")
+            print()  # Salta línea al final de la respuesta
             return full_response.strip()
     except requests.exceptions.RequestException as e:
         return f"Error communicating with Ollama: {e}"
-
-def speak(text):
-    """
-    Convierte texto en voz usando pyttsx3.
-    """
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
 
 def recognize_speech():
     """
@@ -96,10 +113,12 @@ def chat_with_voice(prompt):
         
         # Obtener la respuesta del modelo
         response = send_message_to_ollama(messages)
-        print(f"AI: {response}")
-
-        # Leer la respuesta en voz alta
-        speak(response)
+        if response.startswith("Error"):
+            print(f"AI: {response}")
+            speak("Lo siento, ocurrió un error.")
+        else:
+            print(f"AI: {response}")
+            speak(response)
 
 if __name__ == "__main__":
     # Solicitar el prompt inicial al usuario
